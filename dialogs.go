@@ -607,7 +607,13 @@ func (a *app) aboutDialog(c *ui.Context) {
 	}
 	a.dialog(c, &d.aboutOpen, 360, 0, func() {
 		t := c.Theme()
-		dialogTitle(c, javaIcon, "关于", 1.2)
+		ui.Row(c).Gap(t.Space(2.5)).AlignItems(ui.Center).Children(func() {
+			logo := badge(c, javaIcon, t.Rem(2))
+			if logo.Clicked() {
+				a.eggLogoClick()
+			}
+			ui.Text(c, "关于").FontSize(t.Rem(1.2)).Bold().Grow(1)
+		})
 		ui.Text(c, "用 MyGo 原生 UI 构建的 Java 集成开发环境").TextColor(t.TextMuted)
 		ui.Text(c, "版本 "+appVersion+" · MyGo "+mygoVersion).FontSize(t.Rem(0.85)).TextColor(t.TextMuted)
 		dialogButtons(c, func() {

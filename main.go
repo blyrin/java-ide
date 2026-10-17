@@ -19,6 +19,10 @@ type app struct {
 	dlg     dialogs
 	menu    *mygo.Menu
 	menuSig string
+
+	eggClicks int
+	eggWin    *mygo.Window
+	eggWeb    *mygo.WebView
 }
 
 func (a *app) update(fn func()) {

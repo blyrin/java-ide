@@ -1,0 +1,5 @@
+/build/
+/.mygo/
+/.local/
+mygo_windows_*.syso
+java-ide.exe

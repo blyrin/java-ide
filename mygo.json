@@ -1,0 +1,6 @@
+{
+  "name": "java-ide",
+  "identifier": "com.example.javaide",
+  "version": "0.1.0",
+  "out": "build"
+}

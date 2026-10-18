@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -221,11 +221,11 @@ func (ix *symbolIndex) match(prefix string, limit int) []jSymbol {
 		out = append(out, list...)
 	}
 	ix.mu.RUnlock()
-	sort.SliceStable(out, func(i, j int) bool {
-		if out[i].name != out[j].name {
-			return out[i].name < out[j].name
+	slices.SortStableFunc(out, func(a, b jSymbol) int {
+		if c := strings.Compare(a.name, b.name); c != 0 {
+			return c
 		}
-		return out[i].file < out[j].file
+		return strings.Compare(a.file, b.file)
 	})
 	if len(out) > limit {
 		out = out[:limit]
@@ -495,7 +495,7 @@ func parseErrorLocation(line string) *sourceLoc {
 
 func (s *session) collectBuildErrors(output string) []buildError {
 	var out []buildError
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		m := compileErrorRe.FindStringSubmatch(strings.TrimSpace(line))
 		if m == nil {
 			continue

@@ -484,7 +484,7 @@ func (j *jdwpConn) parseEvents(data []byte) (jdwpEventBatch, bool) {
 	if r.err {
 		return jdwpEventBatch{}, false
 	}
-	for i := 0; i < n; i++ {
+	for range n {
 		e := jdwpEvent{kind: r.byte()}
 		e.requestID = int(r.int32())
 		switch e.kind {
@@ -601,7 +601,7 @@ func (j *jdwpConn) allClasses() (map[string]int64, error) {
 	r := &jdwpReader{b: p, sizes: &j.sizes}
 	n := int(r.int32())
 	out := map[string]int64{}
-	for i := 0; i < n; i++ {
+	for range n {
 		r.byte()
 		id := r.id(j.sizes.refTypeID)
 		sig := r.str()
@@ -622,7 +622,7 @@ func (j *jdwpConn) allThreads() ([]int64, error) {
 	r := &jdwpReader{b: p, sizes: &j.sizes}
 	n := int(r.int32())
 	out := make([]int64, 0, n)
-	for i := 0; i < n; i++ {
+	for range n {
 		out = append(out, r.id(j.sizes.objectID))
 	}
 	if r.err {
@@ -662,7 +662,7 @@ func (j *jdwpConn) frames(thread int64) ([]jdwpFrame, error) {
 	r := &jdwpReader{b: p, sizes: &j.sizes}
 	n := int(r.int32())
 	out2 := make([]jdwpFrame, 0, n)
-	for i := 0; i < n; i++ {
+	for range n {
 		f := jdwpFrame{id: r.id(j.sizes.frameID)}
 		f.loc = r.loc()
 		out2 = append(out2, f)
@@ -702,7 +702,7 @@ func (j *jdwpConn) methods(typeID int64) ([]jdwpMethod, error) {
 	r := &jdwpReader{b: p, sizes: &j.sizes}
 	n := int(r.int32())
 	out2 := make([]jdwpMethod, 0, n)
-	for i := 0; i < n; i++ {
+	for range n {
 		m := jdwpMethod{id: r.id(j.sizes.methodID)}
 		m.name = r.str()
 		m.sig = r.str()
@@ -724,7 +724,7 @@ func (j *jdwpConn) fields(typeID int64) ([]jdwpField, error) {
 	r := &jdwpReader{b: p, sizes: &j.sizes}
 	n := int(r.int32())
 	out2 := make([]jdwpField, 0, n)
-	for i := 0; i < n; i++ {
+	for range n {
 		f := jdwpField{id: r.id(j.sizes.fieldID)}
 		f.name = r.str()
 		f.sig = r.str()
@@ -760,7 +760,7 @@ func (j *jdwpConn) staticValues(typeID int64, fieldIDs []int64) ([]jdwpValue, er
 	r := &jdwpReader{b: p, sizes: &j.sizes}
 	n := int(r.int32())
 	values := make([]jdwpValue, 0, n)
-	for i := 0; i < n; i++ {
+	for range n {
 		values = append(values, r.value())
 	}
 	if r.err {
@@ -793,7 +793,7 @@ func (j *jdwpConn) fieldValues(objID int64, fieldIDs []int64) ([]jdwpValue, erro
 	r := &jdwpReader{b: p, sizes: &j.sizes}
 	n := int(r.int32())
 	values := make([]jdwpValue, 0, n)
-	for i := 0; i < n; i++ {
+	for range n {
 		values = append(values, r.value())
 	}
 	if r.err {
@@ -823,7 +823,7 @@ func (j *jdwpConn) arrayValues(objID int64, first, count int, elemSig string) ([
 	r := &jdwpReader{b: p, sizes: &j.sizes}
 	ref := len(elemSig) > 0 && (elemSig[0] == 'L' || elemSig[0] == '[')
 	values := make([]jdwpValue, 0, count)
-	for i := 0; i < count; i++ {
+	for range count {
 		if ref {
 			values = append(values, r.tagged())
 		} else {
@@ -857,7 +857,7 @@ func (j *jdwpConn) lineTable(typeID, methodID int64) (int64, int64, [][2]int64, 
 	start, end := r.int64(), r.int64()
 	n := int(r.int32())
 	lines := make([][2]int64, 0, n)
-	for i := 0; i < n; i++ {
+	for range n {
 		idx := r.int64()
 		num := int64(r.int32())
 		lines = append(lines, [2]int64{idx, num})
@@ -879,7 +879,7 @@ func (j *jdwpConn) variableTable(typeID, methodID int64) ([]jdwpVarSlot, error) 
 	r.int32()
 	n := int(r.int32())
 	slots := make([]jdwpVarSlot, 0, n)
-	for i := 0; i < n; i++ {
+	for range n {
 		r.int64()
 		name := r.str()
 		sig := r.str()
@@ -912,7 +912,7 @@ func (j *jdwpConn) localValues(thread, frame int64, slots []int, tags []byte) ([
 	r := &jdwpReader{b: p, sizes: &j.sizes}
 	n := int(r.int32())
 	values := make([]jdwpValue, 0, n)
-	for i := 0; i < n; i++ {
+	for range n {
 		values = append(values, r.value())
 	}
 	if r.err {
@@ -960,7 +960,7 @@ func (j *jdwpConn) classesBySignature(sig string) ([]int64, error) {
 	r := &jdwpReader{b: p, sizes: &j.sizes}
 	n := int(r.int32())
 	out2 := make([]int64, 0, n)
-	for i := 0; i < n; i++ {
+	for range n {
 		r.byte()
 		out2 = append(out2, r.id(j.sizes.refTypeID))
 		r.int32()

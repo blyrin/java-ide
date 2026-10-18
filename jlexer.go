@@ -245,7 +245,7 @@ func (l *jLexer) scanIdent() string {
 	}
 	if string(l.src[from:l.pos]) == "non" && l.ch == '-' &&
 		l.hasWordAt(l.pos+1, "sealed") && !isJIdentByte(l.byteAt(l.pos+7)) {
-		for i := 0; i < 7; i++ {
+		for range 7 {
 			l.read()
 		}
 	}
@@ -323,7 +323,7 @@ var jOperators = []string{
 func (l *jLexer) scanOperator() string {
 	for _, op := range jOperators {
 		if l.hasWordAt(l.pos, op) {
-			for i := 0; i < len(op); i++ {
+			for range len(op) {
 				l.read()
 			}
 			return op

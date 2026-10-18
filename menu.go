@@ -217,8 +217,6 @@ func (a *app) setTheme(theme string) {
 	a.toggleSetting("theme:" + theme)
 }
 
-func filepathBase(path string) string { return filepath.Base(path) }
-
 func (a *app) menuSignature() string {
 	st := a.cfg.settings()
 	recent, run, main := "", "", ""
@@ -337,7 +335,7 @@ func (a *app) refreshMenuState() {
 			for _, p := range s.recent {
 				path := p
 				items = append(items, &mygo.MenuItem{
-					Label: filepathBase(path),
+					Label: filepath.Base(path),
 					Click: func(*mygo.MenuItem, *mygo.Window) { a.update(func() { a.openFile(path) }) },
 				})
 			}

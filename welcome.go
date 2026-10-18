@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"hash/fnv"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -228,19 +230,15 @@ func (a *app) openProject(name, path string) {
 }
 
 func hashColor(name string) ui.Color {
-	h := 0
-	for _, r := range name {
-		h = 31*h + int(r)
-	}
-	if h < 0 {
-		h = -h
-	}
-	return ui.Hex(avatarColors[h%len(avatarColors)])
+	h := fnv.New32a()
+	h.Write([]byte(name))
+	return ui.Hex(avatarColors[h.Sum32()%uint32(len(avatarColors))])
 }
 
 func firstRune(s string) string {
-	for _, r := range s {
-		return string(r)
+	r, size := utf8.DecodeRuneInString(s)
+	if size == 0 {
+		return "?"
 	}
-	return "?"
+	return string(r)
 }

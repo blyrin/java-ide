@@ -1,11 +1,13 @@
 package main
 
 import (
+	"math"
+
 	"github.com/egoist/mygo/ui"
 )
 
 func iconSize(t *ui.Theme, rem float32) float32 {
-	return float32(int(t.Rem(rem) + 0.5))
+	return float32(math.Round(float64(t.Rem(rem))))
 }
 
 func svgIcon(shapes string) *ui.SVG {
@@ -139,7 +141,7 @@ func badgeOn(c *ui.Context, icon *ui.SVG, size float32, fg, bg ui.Color) ui.Elem
 	t := c.Theme()
 	b := ui.Box(c).Size(size, size).Background(bg).Radius(t.Radius).Center()
 	b.Children(func() {
-		ui.Icon(c, icon).FontSize(float32(int(size*0.55 + 0.5))).TextColor(fg)
+		ui.Icon(c, icon).FontSize(float32(math.Round(float64(size * 0.55)))).TextColor(fg)
 	})
 	return b
 }

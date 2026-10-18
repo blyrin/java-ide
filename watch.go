@@ -16,8 +16,8 @@ func (s *session) startWatch() {
 		MaxDelay:  time.Second,
 		Ignore: func(path string, isDir bool) bool {
 			name := path
-			if i := strings.LastIndexByte(path, '/'); i >= 0 {
-				name = path[i+1:]
+			if _, after, ok := strings.CutLast(path, "/"); ok {
+				name = after
 			}
 			if isDir {
 				return skipDirs[name]

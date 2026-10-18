@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -1075,7 +1076,7 @@ func (d *debugger) findMethod(typeID int64, name string, args []exprVal) *jdwpMe
 				if len(params) != len(args) {
 					continue
 				}
-				if equalParams(params, want) {
+				if slices.Equal(params, want) {
 					return m
 				}
 				if compatible == nil && methodAccepts(params, args) {
@@ -1091,28 +1092,16 @@ func (d *debugger) findMethod(typeID int64, name string, args []exprVal) *jdwpMe
 	return nil
 }
 
-func equalParams(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
 func methodAccepts(params []string, args []exprVal) bool {
 	for i, p := range params {
 		v := args[i]
 		ref := len(p) > 0 && (p[0] == 'L' || p[0] == '[')
-		switch {
-		case v.kind == ekNull:
+		switch v.kind {
+		case ekNull:
 			if !ref {
 				return false
 			}
-		case v.kind == ekString || v.kind == ekObject || v.kind == ekArray:
+		case ekString, ekObject, ekArray:
 			if !ref {
 				return false
 			}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -374,7 +375,7 @@ func (p *jParser) parseTypeMember(className string) []jMember {
 	}
 	if p.cur().isSym("{") {
 		body := p.parseBlock()
-		ib := &jInitBlock{Static: hasWord(mods, "static"), Body: body, Range: body.Range, Doc: doc}
+		ib := &jInitBlock{Static: slices.Contains(mods, "static"), Body: body, Range: body.Range, Doc: doc}
 		p.emit(jInitBlockEvent{SourceID: p.sourceID, Static: ib.Static, Range: body.Range})
 		return []jMember{ib}
 	}
@@ -630,7 +631,7 @@ func (p *jParser) localDeclAhead() (int, bool) {
 	}
 	if p.look(i).isSym("<") {
 		depth := 0
-		for guard := 0; guard < 96; guard++ {
+		for range 96 {
 			t := p.look(i)
 			if t.Type == jTokEOF {
 				return 0, false
@@ -1008,15 +1009,6 @@ func (p *jParser) isTypeStart() bool {
 
 func (p *jParser) isTypeTok(t jTok) bool {
 	return t.Type == jTokIdent || (t.Type == jTokKeyword && (isJPrimitive(t.Literal) || t.Literal == "var"))
-}
-
-func hasWord(list []string, w string) bool {
-	for _, s := range list {
-		if s == w {
-			return true
-		}
-	}
-	return false
 }
 
 func isJavadoc(lit string) bool {

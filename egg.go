@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -103,5 +104,9 @@ func (a *app) eggView(c *ui.Context) {
 }
 
 func fileURL(path string) string {
-	return (&url.URL{Scheme: "file", Path: "/" + filepath.ToSlash(path)}).String()
+	p := filepath.ToSlash(path)
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	return (&url.URL{Scheme: "file", Path: p}).String()
 }

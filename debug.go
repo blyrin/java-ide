@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
+	"maps"
 	"net"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -116,7 +117,7 @@ func (s *session) breakpointAt(file string, line int) (debugBreakpoint, bool) {
 func (s *session) breakpointsSnapshot() []debugBreakpoint {
 	s.bpMu.Lock()
 	defer s.bpMu.Unlock()
-	return append([]debugBreakpoint(nil), s.breakpoints...)
+	return slices.Clone(s.breakpoints)
 }
 
 func (s *session) withBreakpoints(fn func([]debugBreakpoint) []debugBreakpoint) {
@@ -136,7 +137,7 @@ func (s *session) toggleBreakpoint(file string, line int) {
 		return
 	}
 	s.withBreakpoints(func(bps []debugBreakpoint) []debugBreakpoint {
-		out := append(append([]debugBreakpoint(nil), bps...), debugBreakpoint{File: file, Line: line, Enabled: true})
+		out := append(slices.Clone(bps), debugBreakpoint{File: file, Line: line, Enabled: true})
 		sortBreakpointList(out)
 		return out
 	})
@@ -161,7 +162,7 @@ func (s *session) removeBreakpoint(bp debugBreakpoint) {
 
 func (s *session) setBreakpointEnabled(file string, line int, on bool) {
 	s.withBreakpoints(func(bps []debugBreakpoint) []debugBreakpoint {
-		out := append([]debugBreakpoint(nil), bps...)
+		out := slices.Clone(bps)
 		for i := range out {
 			if out[i].Line == line && filepath.Clean(out[i].File) == filepath.Clean(file) {
 				out[i].Enabled = on
@@ -174,7 +175,7 @@ func (s *session) setBreakpointEnabled(file string, line int, on bool) {
 
 func (s *session) setBreakpointCondition(file string, line int, cond string) {
 	s.withBreakpoints(func(bps []debugBreakpoint) []debugBreakpoint {
-		out := append([]debugBreakpoint(nil), bps...)
+		out := slices.Clone(bps)
 		for i := range out {
 			if out[i].Line == line && filepath.Clean(out[i].File) == filepath.Clean(file) {
 				out[i].Condition = cond
@@ -194,7 +195,7 @@ func (s *session) clearBreakpoints() {
 
 func (s *session) enableAllBreakpoints(on bool) {
 	s.withBreakpoints(func(bps []debugBreakpoint) []debugBreakpoint {
-		out := append([]debugBreakpoint(nil), bps...)
+		out := slices.Clone(bps)
 		for i := range out {
 			out[i].Enabled = on
 		}
@@ -203,11 +204,11 @@ func (s *session) enableAllBreakpoints(on bool) {
 }
 
 func sortBreakpointList(bps []debugBreakpoint) {
-	sort.SliceStable(bps, func(i, j int) bool {
-		if bps[i].File != bps[j].File {
-			return bps[i].File < bps[j].File
+	slices.SortStableFunc(bps, func(a, b debugBreakpoint) int {
+		if c := strings.Compare(a.File, b.File); c != 0 {
+			return c
 		}
-		return bps[i].Line < bps[j].Line
+		return a.Line - b.Line
 	})
 }
 
@@ -570,13 +571,9 @@ func (d *debugger) onClassPrepare(e jdwpEvent) {
 func (d *debugger) syncBreakpoints() {
 	d.mu.Lock()
 	registered := make(map[string]int, len(d.classReq))
-	for k, v := range d.classReq {
-		registered[k] = v
-	}
+	maps.Copy(registered, d.classReq)
 	loaded := make(map[string]int64, len(d.sigToType))
-	for sig, id := range d.sigToType {
-		loaded[sig] = id
-	}
+	maps.Copy(loaded, d.sigToType)
 	pending := make([]debugBreakpoint, 0, len(d.s.breakpointsSnapshot()))
 	for _, bp := range d.s.breakpointsSnapshot() {
 		if bp.Enabled {
@@ -1119,9 +1116,7 @@ func (d *debugger) expandVar(v *debugVar) {
 			v.children = kids
 			v.loaded = true
 			v.loading = false
-			for k, n := range byKey {
-				d.varByKey[k] = n
-			}
+			maps.Copy(d.varByKey, byKey)
 		})
 	}()
 }
@@ -1144,7 +1139,7 @@ func (d *debugger) refreshThreads() {
 
 func (d *debugger) evalWatches(thread int64) {
 	d.mu.Lock()
-	exprs := append([]string(nil), d.watches...)
+	exprs := slices.Clone(d.watches)
 	index := d.frame
 	d.mu.Unlock()
 	if len(exprs) == 0 {
@@ -1468,10 +1463,10 @@ func bpKey(file string, line int) string {
 func classSignatureForFile(file string) string {
 	pkg := ""
 	if b, err := os.ReadFile(file); err == nil {
-		for _, line := range strings.Split(string(b), "\n") {
+		for line := range strings.SplitSeq(string(b), "\n") {
 			t := strings.TrimSpace(line)
-			if strings.HasPrefix(t, "package ") {
-				pkg = strings.TrimSuffix(strings.TrimSpace(strings.TrimPrefix(t, "package ")), ";")
+			if after, ok := strings.CutPrefix(t, "package "); ok {
+				pkg = strings.TrimSuffix(strings.TrimSpace(after), ";")
 				break
 			}
 			if strings.HasPrefix(t, "import ") || strings.HasPrefix(t, "class ") ||
@@ -1503,8 +1498,8 @@ func packageOfSignature(sig string) string {
 }
 
 func simpleName(dotted string) string {
-	if i := strings.LastIndex(dotted, "."); i >= 0 {
-		return dotted[i+1:]
+	if _, after, ok := strings.CutLast(dotted, "."); ok {
+		return after
 	}
 	return dotted
 }

@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -558,11 +557,14 @@ func treeLevel(dir string, showHidden bool) []*treeNode {
 		}
 		nodes = append(nodes, &treeNode{name: e.Name(), path: filepath.Join(dir, e.Name()), dir: e.IsDir()})
 	}
-	sort.SliceStable(nodes, func(i, j int) bool {
-		if nodes[i].dir != nodes[j].dir {
-			return nodes[i].dir
+	slices.SortStableFunc(nodes, func(a, b *treeNode) int {
+		if a.dir != b.dir {
+			if a.dir {
+				return -1
+			}
+			return 1
 		}
-		return nodes[i].name < nodes[j].name
+		return strings.Compare(a.name, b.name)
 	})
 	return nodes
 }

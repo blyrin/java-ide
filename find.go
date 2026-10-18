@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -14,6 +17,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -83,28 +87,27 @@ var skipDirs = map[string]bool{
 	"node_modules": true,
 }
 
-func looksBinary(name string) bool {
-	switch strings.ToLower(filepath.Ext(name)) {
-	case ".class", ".jar", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf",
-		".zip", ".gz", ".exe", ".dll", ".so", ".dylib", ".bin", ".o", ".obj":
+func looksBinary(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
 		return true
 	}
-	return false
+	defer f.Close()
+	buf := make([]byte, 512)
+	n, _ := io.ReadFull(f, buf)
+	return !strings.HasPrefix(http.DetectContentType(buf[:n]), "text/")
 }
 
 type findMatcher struct {
-	query string
-	rx    *regexp.Regexp
-	word  bool
-	fold  bool
+	rx   *regexp.Regexp
+	word bool
 }
 
 func compileFindMatcher(query string, caseSensitive, wholeWord, useRegex bool) (*findMatcher, error) {
-	m := &findMatcher{query: query, word: wholeWord, fold: !caseSensitive}
-	if !useRegex {
-		return m, nil
-	}
 	pat := query
+	if !useRegex {
+		pat = regexp.QuoteMeta(pat)
+	}
 	if wholeWord {
 		pat = `\b(?:` + pat + `)\b`
 	}
@@ -115,84 +118,27 @@ func compileFindMatcher(query string, caseSensitive, wholeWord, useRegex bool) (
 	if err != nil {
 		return nil, err
 	}
-	m.rx = rx
-	return m, nil
+	return &findMatcher{rx: rx, word: wholeWord}, nil
 }
 
 func (m *findMatcher) find(line string) []textSpan {
-	if m.rx != nil {
-		var out []textSpan
-		for _, loc := range m.rx.FindAllStringIndex(line, -1) {
-			if loc[1] > loc[0] {
-				out = append(out, textSpan{loc[0], loc[1]})
-			}
-		}
-		return out
-	}
-	if m.query == "" {
+	if m.rx == nil {
 		return nil
 	}
-	var out []textSpan
-	if m.fold && (!isASCII(m.query) || !isASCII(line)) {
-		out = foldSpans(line, m.query)
-	} else {
-		hay, needle := line, m.query
-		if m.fold {
-			hay, needle = asciiLower(line), asciiLower(m.query)
-		}
-		out = allSpans(hay, needle)
-	}
-	if m.word {
-		out = slices.DeleteFunc(out, func(sp textSpan) bool { return !wholeWordAt(line, sp) })
-	}
-	return out
-}
-
-func allSpans(hay, needle string) []textSpan {
-	if needle == "" {
-		return nil
-	}
-	var out []textSpan
-	for at := 0; at <= len(hay); {
-		i := strings.Index(hay[at:], needle)
-		if i < 0 {
-			return out
-		}
-		start := at + i
-		out = append(out, textSpan{start, start + len(needle)})
-		at = start + len(needle)
-	}
-	return out
-}
-
-func foldSpans(line, needle string) []textSpan {
-	lr, nr := []rune(line), []rune(needle)
-	if len(nr) == 0 || len(lr) < len(nr) {
-		return nil
-	}
-	offs := make([]int, len(lr)+1)
-	for i, r := range lr {
-		offs[i+1] = offs[i] + utf8.RuneLen(r)
-	}
-	lower := make([]rune, len(nr))
-	for i, r := range nr {
-		lower[i] = unicode.ToLower(r)
-	}
-	var out []textSpan
-	for i := 0; i+len(nr) <= len(lr); {
-		match := true
-		for j := range nr {
-			if unicode.ToLower(lr[i+j]) != lower[j] {
-				match = false
-				break
-			}
-		}
-		if !match {
-			i++
+	locs := m.rx.FindAllStringIndex(line, -1)
+	out := make([]textSpan, 0, len(locs))
+	for _, loc := range locs {
+		if loc[1] <= loc[0] {
 			continue
 		}
-		out = append(out, textSpan{offs[i], offs[i+len(nr)]})
-		i += len(nr)
+		sp := textSpan{loc[0], loc[1]}
+		if m.word && !wholeWordAt(line, sp) {
+			continue
+		}
+		out = append(out, sp)
+	}
+	if len(out) == 0 {
+		return nil
 	}
 	return out
 }
@@ -213,35 +159,6 @@ func wholeWordAt(line string, sp textSpan) bool {
 
 func isWordRune(r rune) bool {
 	return r == '_' || r == '$' || unicode.IsLetter(r) || unicode.IsDigit(r)
-}
-
-func isASCII(s string) bool {
-	for i := 0; i < len(s); i++ {
-		if s[i] >= utf8.RuneSelf {
-			return false
-		}
-	}
-	return true
-}
-
-func asciiLower(s string) string {
-	changed := false
-	for i := 0; i < len(s); i++ {
-		if c := s[i]; c >= 'A' && c <= 'Z' {
-			changed = true
-			break
-		}
-	}
-	if !changed {
-		return s
-	}
-	b := []byte(s)
-	for i, c := range b {
-		if c >= 'A' && c <= 'Z' {
-			b[i] = c + ('a' - 'A')
-		}
-	}
-	return string(b)
 }
 
 type fileMask []string
@@ -416,7 +333,7 @@ func collectSearchFiles(root string, mask fileMask) []string {
 			}
 			return nil
 		}
-		if d.Type()&os.ModeSymlink != 0 || looksBinary(d.Name()) || !mask.match(d.Name()) {
+		if d.Type()&os.ModeSymlink != 0 || !mask.match(d.Name()) || looksBinary(p) {
 			return nil
 		}
 		if st, err := d.Info(); err == nil && st.Size() > maxSearchFileSize {
@@ -429,49 +346,45 @@ func collectSearchFiles(root string, mask fileMask) []string {
 }
 
 func searchFileList(files []string, m *findMatcher, cancel <-chan struct{}) ([]findMatch, int) {
-	work := make(chan string)
+	ctx, stop := context.WithCancel(context.Background())
+	defer stop()
+	go func() {
+		select {
+		case <-cancel:
+			stop()
+		case <-ctx.Done():
+		}
+	}()
 	var mu sync.Mutex
 	var all []findMatch
 	skipped := 0
-	var wg sync.WaitGroup
-	for range min(searchWorkers, max(len(files), 1)) {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for p := range work {
-				select {
-				case <-cancel:
-					continue
-				default:
-				}
-				ms, ok := searchFile(p, m)
-				if !ok {
-					mu.Lock()
-					skipped++
-					mu.Unlock()
-				}
-				if len(ms) > 0 {
-					mu.Lock()
-					all = append(all, ms...)
-					mu.Unlock()
-				}
-			}
-		}()
-	}
-loop:
+	var g errgroup.Group
+	g.SetLimit(searchWorkers)
 	for _, p := range files {
-		select {
-		case work <- p:
-		case <-cancel:
-			break loop
+		if ctx.Err() != nil {
+			break
 		}
+		g.Go(func() error {
+			if ctx.Err() != nil {
+				return nil
+			}
+			ms, ok := searchFile(p, m)
+			if !ok {
+				mu.Lock()
+				skipped++
+				mu.Unlock()
+			}
+			if len(ms) > 0 {
+				mu.Lock()
+				all = append(all, ms...)
+				mu.Unlock()
+			}
+			return nil
+		})
 	}
-	close(work)
-	wg.Wait()
-	select {
-	case <-cancel:
+	g.Wait()
+	if ctx.Err() != nil {
 		return nil, 0
-	default:
 	}
 	return all, skipped
 }
@@ -512,17 +425,12 @@ func matchText(file, text string, m *findMatcher) []findMatch {
 }
 
 func buildFindRows(matches []findMatch) []findRow {
-	if len(matches) == 0 {
-		return nil
-	}
 	var rows []findRow
 	for i := range matches {
 		if i == 0 || matches[i].file != matches[i-1].file {
-			count := 1
-			for j := i + 1; j < len(matches) && matches[j].file == matches[i].file; j++ {
-				count++
-			}
-			rows = append(rows, findRow{file: matches[i].file, count: count})
+			rows = append(rows, findRow{file: matches[i].file, count: 1})
+		} else {
+			rows[len(rows)-1].count++
 		}
 		rows = append(rows, findRow{match: &matches[i]})
 	}

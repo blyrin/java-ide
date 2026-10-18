@@ -14,7 +14,7 @@ const appDirName = "java-ide"
 type projectEntity struct {
 	Name     string    `json:"name"`
 	FilePath string    `json:"filePath"`
-	OpenedAt time.Time `json:"openedAt,omitempty"`
+	OpenedAt time.Time `json:"openedAt"`
 }
 
 type appConfigure struct {

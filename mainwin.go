@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -126,7 +127,7 @@ func (a *app) editorTabs(c *ui.Context, s *session) {
 					}
 					if m.Item("关闭其他").Chosen() {
 						s.later(func() {
-							for j := len(s.tabs) - 1; j >= 0; j-- {
+							for j := range slices.Backward(s.tabs) {
 								if j != i {
 									s.closeTab(j)
 								}
@@ -135,7 +136,7 @@ func (a *app) editorTabs(c *ui.Context, s *session) {
 					}
 					if m.Item("关闭全部").Chosen() {
 						s.later(func() {
-							for j := len(s.tabs) - 1; j >= 0; j-- {
+							for j := range slices.Backward(s.tabs) {
 								s.closeTab(j)
 							}
 						})

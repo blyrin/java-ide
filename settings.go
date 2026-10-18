@@ -1,6 +1,8 @@
 package main
 
 import (
+	"slices"
+
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
@@ -91,19 +93,15 @@ var (
 )
 
 func optionLabel(labels, values []string, value string) string {
-	for i, v := range values {
-		if v == value {
-			return labels[i]
-		}
+	if i := slices.Index(values, value); i >= 0 {
+		return labels[i]
 	}
 	return labels[0]
 }
 
 func optionValue(labels, values []string, label string) string {
-	for i, l := range labels {
-		if l == label {
-			return values[i]
-		}
+	if i := slices.Index(labels, label); i >= 0 {
+		return values[i]
 	}
 	return values[0]
 }

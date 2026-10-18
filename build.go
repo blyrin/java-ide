@@ -19,8 +19,7 @@ func exitCodeOf(err error) int {
 	if err == nil {
 		return 0
 	}
-	var ee *exec.ExitError
-	if errors.As(err, &ee) {
+	if ee, ok := errors.AsType[*exec.ExitError](err); ok {
 		return ee.ExitCode()
 	}
 	return -1
@@ -30,6 +29,17 @@ func newCommand(name string, args ...string) *exec.Cmd {
 	cmd := exec.Command(name, args...)
 	hideWindow(cmd)
 	return cmd
+}
+
+func runCapture(cmd *exec.Cmd) processResult {
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		if len(out) == 0 {
+			out = []byte(err.Error())
+		}
+		return processResult{ExitCode: exitCodeOf(err), Output: string(out)}
+	}
+	return processResult{ExitCode: 0, Output: string(out)}
 }
 
 func detectBuildTool(root string) string {
@@ -84,14 +94,7 @@ func javacBuild(projectPath, encoding, jdkHome string) processResult {
 	args = append(args, sources...)
 	cmd := newCommand(toolPath(jdkHome, "javac"), args...)
 	cmd.Dir = projectPath
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		if len(out) == 0 {
-			out = []byte(err.Error())
-		}
-		return processResult{ExitCode: exitCodeOf(err), Output: string(out)}
-	}
-	return processResult{ExitCode: 0, Output: string(out)}
+	return runCapture(cmd)
 }
 
 func mavenBuild(projectPath, maven, jdkHome string, goals ...string) processResult {
@@ -104,14 +107,7 @@ func mavenBuild(projectPath, maven, jdkHome string, goals ...string) processResu
 	cmd := newCommand(maven, goals...)
 	cmd.Dir = projectPath
 	cmd.Env = commandEnv(jdkHome)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		if len(out) == 0 {
-			out = []byte(err.Error())
-		}
-		return processResult{ExitCode: exitCodeOf(err), Output: string(out)}
-	}
-	return processResult{ExitCode: 0, Output: string(out)}
+	return runCapture(cmd)
 }
 
 func gradleBuild(projectPath, gradle, jdkHome string, tasks ...string) processResult {
@@ -124,14 +120,7 @@ func gradleBuild(projectPath, gradle, jdkHome string, tasks ...string) processRe
 	cmd := newCommand(gradle, tasks...)
 	cmd.Dir = projectPath
 	cmd.Env = commandEnv(jdkHome)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		if len(out) == 0 {
-			out = []byte(err.Error())
-		}
-		return processResult{ExitCode: exitCodeOf(err), Output: string(out)}
-	}
-	return processResult{ExitCode: 0, Output: string(out)}
+	return runCapture(cmd)
 }
 
 func (s *session) toolBuild(tool string) processResult {
@@ -170,12 +159,8 @@ func jarPackage(projectPath, mainClass, jdkHome string) processResult {
 	args = append(args, "-C", filepath.Join(projectPath, "out"), ".")
 	cmd := newCommand(toolPath(jdkHome, "jar"), args...)
 	cmd.Dir = projectPath
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		if len(out) == 0 {
-			out = []byte(err.Error())
-		}
-		return processResult{ExitCode: exitCodeOf(err), Output: string(out)}
+	if res := runCapture(cmd); res.ExitCode != 0 {
+		return res
 	}
 	return processResult{ExitCode: 0, Output: "已生成 " + jar}
 }

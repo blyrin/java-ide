@@ -332,8 +332,8 @@ func (a *app) saveRunConfig() {
 	rc := runConfig{
 		Name:        strings.TrimSpace(d.runName),
 		MainClass:   strings.TrimSpace(d.runMainClass),
-		VMArgs:      splitFields(d.runVMArgs),
-		ProgramArgs: splitFields(d.runProgramArgs),
+		VMArgs:      strings.Fields(d.runVMArgs),
+		ProgramArgs: strings.Fields(d.runProgramArgs),
 		Env:         splitLines(d.runEnv),
 		WorkDir:     strings.TrimSpace(d.runWorkDir),
 		BuildTool:   d.runBuildTool,
@@ -353,14 +353,6 @@ func (a *app) saveRunConfig() {
 	}
 	s.saveConfigure()
 	d.runOpen = false
-}
-
-func splitFields(s string) []string {
-	var out []string
-	for _, f := range strings.Fields(s) {
-		out = append(out, f)
-	}
-	return out
 }
 
 func splitLines(s string) []string {
@@ -800,8 +792,7 @@ func (a *app) evaluateDialog(c *ui.Context) {
 		dialogTitle(c, eyeIcon, "计算表达式", 1.2)
 		ui.Column(c).Gap(t.Space(2.5)).Children(func() {
 			ui.Field(c, "表达式", func() {
-				in := a.dialogField(c, &d.evalExpr, "例如：list.size() 或 count + 1", "表达式")
-				_ = in
+				a.dialogField(c, &d.evalExpr, "例如：list.size() 或 count + 1", "表达式")
 			})
 			ui.Field(c, "结果", func() {
 				out := ui.TextArea(c, &d.evalText).ReadOnly(true).Grow(0).FillWidth().MinHeight(0).

@@ -27,15 +27,7 @@ func buildProject(projectPath string) processResult {
 }
 
 func gitFetch(url, branch, dir, gitCommand string) processResult {
-	cmd := newCommand(gitTool(gitCommand), "clone", url, "-b", branch, dir)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		if len(out) == 0 {
-			out = []byte(err.Error())
-		}
-		return processResult{ExitCode: exitCodeOf(err), Output: string(out)}
-	}
-	return processResult{ExitCode: 0}
+	return runCapture(newCommand(gitTool(gitCommand), "clone", url, "-b", branch, dir))
 }
 
 type engine struct {
